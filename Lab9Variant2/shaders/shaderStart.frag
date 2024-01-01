@@ -3,6 +3,7 @@
 in vec3 fNormal;
 in vec4 fPosEye;
 in vec2 fTexCoords;
+in vec4 fragPosLightSpace; // fragment position in light space
 
 out vec4 fColor;
 
@@ -13,6 +14,7 @@ uniform	vec3 lightColor;
 //texture
 uniform sampler2D diffuseTexture;
 uniform sampler2D specularTexture;
+uniform sampler2D shadowMap;
 
 vec3 ambient;
 float ambientStrength = 0.2f;
@@ -46,17 +48,36 @@ void computeLightComponents()
 	specular = specularStrength * specCoeff * lightColor;
 }
 
+float computeShadow() {
+    // Transform to [0,1] range
+    vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+    projCoords = projCoords * 0.5 + 0.5;
+
+    // Get closest depth value from light's perspective
+    float closestDepth = texture(shadowMap, projCoords.xy).r; 
+    
+    // Get depth of current fragment from light's perspective
+    float currentDepth = projCoords.z;
+    
+    // Check whether current frag pos is in shadow
+    float shadow = currentDepth > closestDepth  ? 1.0 : 0.0;
+    
+    return shadow;
+}
+
 void main() 
 {
 	computeLightComponents();
-	
+	float shadow = computeShadow();
+
+
 	vec3 baseColor = vec3(0.9f, 0.35f, 0.0f);//orange
 	
 	ambient *= texture(diffuseTexture, fTexCoords).rgb;
 	diffuse *= texture(diffuseTexture, fTexCoords).rgb;
 	specular *= texture(specularTexture, fTexCoords).rgb;
 
-	vec3 color = min((ambient + diffuse) + specular, 1.0f);
+	vec3 color = min((ambient + (1.0f - shadow) * diffuse) + (1.0f - shadow) * specular, 1.0f);
     
     fColor = vec4(color, 1.0f);
 }

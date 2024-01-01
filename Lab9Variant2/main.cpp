@@ -68,6 +68,7 @@ gps::Model3D screenQuad;
 gps::Shader myCustomShader;
 gps::Shader lightShader;
 gps::Shader screenQuadShader;
+gps::Shader depthMapShader;
 
 GLuint shadowMapFBO;
 GLuint depthMapTexture;
@@ -256,6 +257,8 @@ void initShaders() {
 	lightShader.useShaderProgram();
 	screenQuadShader.loadShader("shaders/screenQuad.vert", "shaders/screenQuad.frag");
 	screenQuadShader.useShaderProgram();
+	depthMapShader.loadShader("shaders/depthMap.vert", "shaders/depthMap.frag");
+	depthMapShader.useShaderProgram();
 }
 
 void initUniforms() {
@@ -290,15 +293,51 @@ void initUniforms() {
 
 	lightShader.useShaderProgram();
 	glUniformMatrix4fv(glGetUniformLocation(lightShader.shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+
+	glUniformMatrix4fv(glGetUniformLocation(myCustomShader.shaderProgram, "lightSpaceTrMatrix"),
+		1, GL_FALSE, glm::value_ptr(computeLightSpaceTrMatrix()));
+
+
 }
 
 void initFBO() {
 	//TODO - Create the FBO, the depth texture and attach the depth texture to the FBO
+	glGenFramebuffers(1, &shadowMapFBO);
+	glBindFramebuffer(GL_FRAMEBUFFER, shadowMapFBO);
+
+	// Create depth texture for FBO
+	glGenTextures(1, &depthMapTexture);
+	glBindTexture(GL_TEXTURE_2D, depthMapTexture);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT,
+		SHADOW_WIDTH, SHADOW_HEIGHT, 0,
+		GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+
+	// Set texture parameters
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+	float borderColor[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthMapTexture, 0);
+	glDrawBuffer(GL_NONE);
+	glReadBuffer(GL_NONE);
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+		std::cout << "Error! Framebuffer is not complete!" << std::endl;
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
 }
 
 glm::mat4 computeLightSpaceTrMatrix() {
 	//TODO - Return the light-space transformation matrix
-	return glm::mat4(1.0f);
+	const GLfloat near_plane = 1.0f, far_plane = 7.5f;
+	glm::mat4 lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, near_plane, far_plane);
+	glm::mat4 lightView = glm::lookAt(lightColor,
+		glm::vec3(0.0f), // Center of the scene
+		glm::vec3(0.0f, 1.0f, 0.0f)); // Up vector
+	glm::mat4 lightSpaceTrMatrix = lightProjection * lightView;
+	return lightSpaceTrMatrix;
 }
 
 void drawObjects(gps::Shader shader, bool depthPass) {
@@ -334,19 +373,33 @@ void renderScene() {
 	// depth maps creation pass
 	//TODO - Send the light-space transformation matrix to the depth map creation shader and
 	//		 render the scene in the depth map
+	// Bind the framebuffer for the depth map
+	glBindFramebuffer(GL_FRAMEBUFFER, shadowMapFBO);
+	glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
+	glClear(GL_DEPTH_BUFFER_BIT);
 
-	
+	// Use the depth map shader
+	depthMapShader.useShaderProgram();
+
+	// Set the light space transformation matrix
+	glUniformMatrix4fv(glGetUniformLocation(depthMapShader.shaderProgram, "lightSpaceMatrix"),
+		1, GL_FALSE, glm::value_ptr(computeLightSpaceTrMatrix()));
+
+	// Render the scene to the depth map
+	drawObjects(depthMapShader, true);
+
+	// Unbind the framebuffer
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	// render depth map on screen - toggled with the M key
 
 	if (showDepthMap) {
 		glViewport(0, 0, retina_width, retina_height);
-
 		glClear(GL_COLOR_BUFFER_BIT);
 
 		screenQuadShader.useShaderProgram();
 
-		//bind the depth map
+		// Bind the depth map
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, depthMapTexture);
 		glUniform1i(glGetUniformLocation(screenQuadShader.shaderProgram, "depthMap"), 0);
