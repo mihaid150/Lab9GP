@@ -1,0 +1,67 @@
+# Visual Studio-specific files
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Exclude all .vcxproj, .vcxproj.filters, and .vcxproj.user files
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+
+# Visual Studio 2015/2017 cache/options directory
+.vs/
+
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+
+# OpenGL files
+# (Add any specific files or directories related to OpenGL that you don't want to track)
+
+# MSTest test Results
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+
+# NUNIT
+*.VisualState.xml
+TestResult.xml
+
+# Build Results of an ATL Project
+[Dd]ebugPS/
+[Rr]eleasePS/
+dlldata.c
+
+# Benchmark Results
+BenchmarkDotNet.Artifacts/
+
+# .NET Core
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# ASP.NET Scaffolding
+ScaffoldingReadMe.txt
+
+# Others
+*.swp
+*~
+._*
+
+# Exclude node_modules folder
+node_modules/
+
+# Exclude the build directory
+build/
+
+# Exclude all x64 directories
+x64/
+
+# Exclude .env files
+.env
